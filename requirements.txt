@@ -1,0 +1,12 @@
+torch
+torch_geometric
+torch_scatter
+torch_sparse
+mamba_ssm
+rdkit
+scikit-learn
+pandas
+numpy
+tqdm
+pyyaml
+mendeleev
