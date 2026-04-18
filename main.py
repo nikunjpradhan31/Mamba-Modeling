@@ -62,7 +62,7 @@ def main():
     parser.add_argument(
         "--ordering",
         type=str,
-        default="random",
+        default="atomic_number",
         choices=["random", "atomic_number", "electronegativity"],
         help="Node ordering strategy",
     )
