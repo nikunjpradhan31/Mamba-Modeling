@@ -68,7 +68,14 @@ class GINMambaHybrid(nn.Module):
         h = self.gin(x, edge_index)
 
         # 2. Reordering
-        perm = ordering_func(data)
+        perm_output = ordering_func(data)
+        if isinstance(perm_output, tuple):
+            perm, scores = perm_output
+            # Soft gating to allow gradient flow to learned ordering module
+            h = h * scores.unsqueeze(-1)
+        else:
+            perm = perm_output
+
         h = h[perm]
         batch = batch[perm]
 

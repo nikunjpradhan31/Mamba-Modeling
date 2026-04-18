@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
 
 
 def compute_metrics(y_true, y_pred):
     """
-    Computes macro-averaged ROC-AUC and PRC-AUC for multi-task classification.
+    Computes macro-averaged ROC-AUC, PRC-AUC, and F1-score for multi-task classification.
     Ignores NaN labels in ground truth.
 
     Args:
@@ -14,7 +14,7 @@ def compute_metrics(y_true, y_pred):
         y_pred: Predicted probabilities or logits (numpy array or torch tensor) of shape (N, num_tasks)
 
     Returns:
-        Dictionary with macro-averaged ROC-AUC and PRC-AUC across valid tasks.
+        Dictionary with macro-averaged metrics across valid tasks.
     """
     if isinstance(y_true, torch.Tensor):
         y_true = y_true.detach().cpu().numpy()
@@ -23,6 +23,7 @@ def compute_metrics(y_true, y_pred):
 
     roc_aucs = []
     prc_aucs = []
+    f1_scores = []
 
     if len(y_true.shape) == 1:
         y_true = np.expand_dims(y_true, axis=-1)
@@ -44,10 +45,17 @@ def compute_metrics(y_true, y_pred):
         if len(np.unique(valid_y_true)) > 1:
             roc_auc = roc_auc_score(valid_y_true, valid_y_pred)
             prc_auc = average_precision_score(valid_y_true, valid_y_pred)
+
+            # Use 0.5 threshold for F1-score (assuming y_pred are probabilities)
+            valid_y_pred_binary = (valid_y_pred >= 0.5).astype(int)
+            f1 = f1_score(valid_y_true, valid_y_pred_binary, zero_division=0)
+
             roc_aucs.append(roc_auc)
             prc_aucs.append(prc_auc)
+            f1_scores.append(f1)
 
     return {
         "roc_auc": np.mean(roc_aucs) if roc_aucs else 0.0,
         "prc_auc": np.mean(prc_aucs) if prc_aucs else 0.0,
+        "f1_score": np.mean(f1_scores) if f1_scores else 0.0,
     }

@@ -19,6 +19,8 @@ from src.training.eval import evaluate
 from src.ordering.random import get_order as random_order
 from src.ordering.atomic_number import get_order as atomic_number_order
 from src.ordering.electronegativity import get_order as electronegativity_order
+from src.ordering.degree import get_order as degree_order
+from src.ordering.learned import LearnedOrdering
 
 
 class ModelWrapper(nn.Module):
@@ -62,9 +64,16 @@ def main():
     parser.add_argument(
         "--ordering",
         type=str,
-        default="random",
-        choices=["random", "atomic_number", "electronegativity"],
+        default="atomic_number",
+        choices=["random", "atomic_number", "electronegativity", "degree", "learned"],
         help="Node ordering strategy",
+    )
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default="hybrid",
+        choices=["hybrid", "gin"],
+        help="Type of model to use (hybrid or standalone gin ablation)",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
@@ -114,15 +123,25 @@ def main():
         ordering_func = atomic_number_order
     elif args.ordering == "electronegativity":
         ordering_func = electronegativity_order
+    elif args.ordering == "degree":
+        ordering_func = degree_order
+    elif args.ordering == "learned":
+        ordering_func = LearnedOrdering(dataset.num_node_features).to(device)
     else:
         raise ValueError(f"Unknown ordering: {args.ordering}")
+
+    # Set mamba layers to 0 if gin model
+    mamba_layers = config["model"]["mamba_layers"]
+    if args.model_type == "gin":
+        mamba_layers = 0
+        logger.info("Using standalone GIN baseline (mamba_layers=0)")
 
     # Initialize model
     base_model = GINMambaHybrid(
         node_features=dataset.num_node_features,
         d_model=config["model"]["d_model"],
         gin_layers=config["model"]["gin_layers"],
-        mamba_layers=config["model"]["mamba_layers"],
+        mamba_layers=mamba_layers,
         dropout=config["model"]["dropout"],
         num_tasks=dataset.num_tasks,
     )
@@ -138,7 +157,9 @@ def main():
     criterion = nn.BCEWithLogitsLoss(reduction="none")
 
     best_val_roc_auc = -1.0
-    best_model_path = f"outputs/checkpoints/best_model_{args.ordering}.pt"
+    best_model_path = (
+        f"outputs/checkpoints/best_model_{args.model_type}_{args.ordering}.pt"
+    )
     epochs = config["training"]["epochs"]
 
     logger.info("Starting training...")
@@ -147,9 +168,10 @@ def main():
         val_loss, val_metrics = evaluate(model, val_loader, criterion, device)
 
         val_roc_auc = val_metrics.get("roc_auc", 0.0)
+        val_f1_score = val_metrics.get("f1_score", 0.0)
 
         logger.info(
-            f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val ROC-AUC: {val_roc_auc:.4f}"
+            f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val ROC-AUC: {val_roc_auc:.4f} | Val F1-Score: {val_f1_score:.4f}"
         )
 
         if val_roc_auc > best_val_roc_auc:
@@ -168,21 +190,24 @@ def main():
 
     test_roc_auc = test_metrics.get("roc_auc", 0.0)
     test_prc_auc = test_metrics.get("prc_auc", 0.0)
+    test_f1_score = test_metrics.get("f1_score", 0.0)
 
     logger.info(
-        f"Test Loss: {test_loss:.4f} | Test ROC-AUC: {test_roc_auc:.4f} | Test PRC-AUC: {test_prc_auc:.4f}"
+        f"Test Loss: {test_loss:.4f} | Test ROC-AUC: {test_roc_auc:.4f} | Test PRC-AUC: {test_prc_auc:.4f} | Test F1-Score: {test_f1_score:.4f}"
     )
 
     # Write results to JSON
     results = {
+        "model_type": args.model_type,
         "ordering": args.ordering,
         "seed": args.seed,
         "test_roc_auc": test_roc_auc,
         "test_prc_auc": test_prc_auc,
+        "test_f1_score": test_f1_score,
         "best_val_roc_auc": best_val_roc_auc,
     }
 
-    results_path = f"outputs/results/results_{args.ordering}.json"
+    results_path = f"outputs/results/results_{args.model_type}_{args.ordering}.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
     logger.info(f"Results saved to {results_path}")
