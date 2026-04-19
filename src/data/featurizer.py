@@ -3,45 +3,120 @@ from torch_geometric.data import Data
 from rdkit import Chem
 
 
-def get_node_features(atom):
+# def get_node_features(atom):
+#     """
+#     Extract node features from an RDKit atom.
+#     Features: atomic number, degree, hybridization, aromaticity, total valence, formal charge, radical electrons.
+#     """
+#     atomic_num = atom.GetAtomicNum()
+#     degree = atom.GetDegree()
+
+#     try:
+#         hybridization = int(atom.GetHybridization())
+#     except:
+#         hybridization = 0
+
+#     is_aromatic = int(atom.GetIsAromatic())
+#     total_valence = atom.GetTotalValence()
+#     formal_charge = atom.GetFormalCharge()
+#     radical_electrons = atom.GetNumRadicalElectrons()
+
+#     return [
+#         float(atomic_num),
+#         float(degree),
+#         float(hybridization),
+#         float(is_aromatic),
+#         float(total_valence),
+#         float(formal_charge),
+#         float(radical_electrons),
+#     ]
+
+
+# def get_edge_features(bond):
+#     """
+#     Extract edge features from an RDKit bond.
+#     Features: bond type (as float), is in ring, is conjugated.
+#     """
+#     bond_type = bond.GetBondTypeAsDouble()
+#     is_in_ring = int(bond.IsInRing())
+#     is_conjugated = int(bond.GetIsConjugated())
+
+#     return [float(bond_type), float(is_in_ring), float(is_conjugated)]
+
+def get_edge_features(bond):
     """
-    Extract node features from an RDKit atom.
-    Features: atomic number, degree, hybridization, aromaticity, implicit valence, formal charge, radical electrons.
+    Tox21-optimized edge features for molecular graphs.
     """
-    atomic_num = atom.GetAtomicNum()
-    degree = atom.GetDegree()
 
-    try:
-        hybridization = int(atom.GetHybridization())
-    except:
-        hybridization = 0
-
-    is_aromatic = int(atom.GetIsAromatic())
-    implicit_valence = atom.GetImplicitValence()
-    formal_charge = atom.GetFormalCharge()
-    radical_electrons = atom.GetNumRadicalElectrons()
-
-    return [
-        float(atomic_num),
-        float(degree),
-        float(hybridization),
-        float(is_aromatic),
-        float(implicit_valence),
-        float(formal_charge),
-        float(radical_electrons),
+    # Bond type encoding (more stable than raw float alone)
+    bond_type = bond.GetBondType()
+    bond_type_onehot = [
+        int(bond_type == Chem.rdchem.BondType.SINGLE),
+        int(bond_type == Chem.rdchem.BondType.DOUBLE),
+        int(bond_type == Chem.rdchem.BondType.TRIPLE),
+        int(bond_type == Chem.rdchem.BondType.AROMATIC),
     ]
+
+    is_in_ring = int(bond.IsInRing())
+    is_conjugated = int(bond.GetIsConjugated())
+
+    # Directionality (important for stereochemistry-aware tasks)
+    is_stereo = int(bond.GetStereo() != Chem.rdchem.BondStereo.STEREONONE)
+
+    # Aromatic flag (redundant but useful explicitly at edge level)
+    is_aromatic = int(bond.GetIsAromatic())
+
+    # Conformational flexibility proxy
+    is_rotatable = int(bond.GetBondType() == Chem.rdchem.BondType.SINGLE and not bond.IsInRing())
+
+    return (
+        bond_type_onehot +
+        [
+            float(is_in_ring),
+            float(is_conjugated),
+            float(is_stereo),
+            float(is_aromatic),
+            float(is_rotatable),
+        ]
+    )
 
 
 def get_edge_features(bond):
     """
-    Extract edge features from an RDKit bond.
-    Features: bond type (as float), is in ring, is conjugated.
+    Tox21-optimized edge features for molecular graphs.
     """
-    bond_type = bond.GetBondTypeAsDouble()
+
+    # Bond type encoding (more stable than raw float alone)
+    bond_type = bond.GetBondType()
+    bond_type_onehot = [
+        int(bond_type == Chem.rdchem.BondType.SINGLE),
+        int(bond_type == Chem.rdchem.BondType.DOUBLE),
+        int(bond_type == Chem.rdchem.BondType.TRIPLE),
+        int(bond_type == Chem.rdchem.BondType.AROMATIC),
+    ]
+
     is_in_ring = int(bond.IsInRing())
     is_conjugated = int(bond.GetIsConjugated())
 
-    return [float(bond_type), float(is_in_ring), float(is_conjugated)]
+    # Directionality (important for stereochemistry-aware tasks)
+    is_stereo = int(bond.GetStereo() != Chem.rdchem.BondStereo.STEREONONE)
+
+    # Aromatic flag (redundant but useful explicitly at edge level)
+    is_aromatic = int(bond.GetIsAromatic())
+
+    # Conformational flexibility proxy
+    is_rotatable = int(bond.GetBondType() == Chem.rdchem.BondType.SINGLE and not bond.IsInRing())
+
+    return (
+        bond_type_onehot +
+        [
+            float(is_in_ring),
+            float(is_conjugated),
+            float(is_stereo),
+            float(is_aromatic),
+            float(is_rotatable),
+        ]
+    )
 
 
 class MolFeaturizer:
