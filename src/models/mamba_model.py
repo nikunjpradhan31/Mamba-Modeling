@@ -9,7 +9,7 @@ import torch.nn as nn
 # if mamba2_path not in sys.path:
 #     sys.path.append(mamba2_path)
 
-from .mamba2_minimal.mamba2 import Mamba2, Mamba2Config
+from .mamba2 import Mamba2, Mamba2Config
 
 
 class MambaBlock(nn.Module):
