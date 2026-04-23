@@ -25,7 +25,7 @@ class Tox21Dataset(InMemoryDataset):
             pre_transform=pre_transform,
             pre_filter=pre_filter,
         )
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def raw_file_names(self):

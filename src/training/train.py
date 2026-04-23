@@ -27,26 +27,40 @@ def train_epoch(
     model.train()
     total_loss = 0.0
     num_batches = len(dataloader)
+    
+    use_amp = device.type == 'cuda'
 
     for batch in dataloader:
         if hasattr(batch, "y") and hasattr(batch, "x"):
             # PyTorch Geometric Batch object
-            labels = batch.y.to(device)
-            batch = batch.to(device)
-            outputs = model(batch)
+            labels = batch.y.to(device, non_blocking=True)
+            batch = batch.to(device, non_blocking=True)
+            
+            optimizer.zero_grad()
+            
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+                outputs = model(batch)
         elif isinstance(batch, dict):
             # Assume dict contains inputs and 'labels'
-            labels = batch.pop("labels").to(device)
-            inputs = {k: v.to(device) for k, v in batch.items()}
-            outputs = model(**inputs)
+            labels = batch.pop("labels").to(device, non_blocking=True)
+            inputs = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
+            
+            optimizer.zero_grad()
+            
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+                outputs = model(**inputs)
         elif isinstance(batch, (tuple, list)):
             # Assume last element is labels, rest are inputs
             inputs, labels = batch[:-1], batch[-1]
-            labels = labels.to(device)
-            if len(inputs) == 1:
-                outputs = model(inputs[0].to(device))
-            else:
-                outputs = model(*[inp.to(device) for inp in inputs])
+            labels = labels.to(device, non_blocking=True)
+            
+            optimizer.zero_grad()
+            
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+                if len(inputs) == 1:
+                    outputs = model(inputs[0].to(device, non_blocking=True))
+                else:
+                    outputs = model(*[inp.to(device, non_blocking=True) for inp in inputs])
         else:
             raise ValueError("Unexpected batch format")
 
@@ -61,21 +75,21 @@ def train_epoch(
         if logits.shape != labels.shape:
             logits = logits.view(labels.shape)
 
-        # Create mask for valid labels (non-NaN)
-        valid_mask = ~torch.isnan(labels)
-        # Replace NaNs in labels with 0 to safely compute loss
-        safe_labels = torch.where(valid_mask, labels, torch.zeros_like(labels))
-        # Compute element-wise loss
-        loss_matrix = criterion(logits, safe_labels)
-        # Apply mask and compute mean loss over valid elements
-        masked_loss = loss_matrix[valid_mask]
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+            # Create mask for valid labels (non-NaN)
+            valid_mask = ~torch.isnan(labels)
+            # Replace NaNs in labels with 0 to safely compute loss
+            safe_labels = torch.where(valid_mask, labels, torch.zeros_like(labels))
+            # Compute element-wise loss
+            loss_matrix = criterion(logits, safe_labels)
+            # Apply mask and compute mean loss over valid elements
+            masked_loss = loss_matrix[valid_mask]
 
-        if masked_loss.numel() > 0:
-            loss = masked_loss.mean()
-        else:
-            loss = torch.tensor(0.0, device=device, requires_grad=True)
+            if masked_loss.numel() > 0:
+                loss = masked_loss.mean()
+            else:
+                loss = torch.tensor(0.0, device=device, requires_grad=True)
 
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 

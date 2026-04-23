@@ -160,6 +160,7 @@ class MolFeaturizer:
         else:
             edge_index = torch.empty((2, 0), dtype=torch.long)
             edge_attr = torch.empty((0, 9), dtype=torch.float)
+            edge_attr = torch.empty((0, 9), dtype=torch.float)
 
         data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, z=z_tensor)
 

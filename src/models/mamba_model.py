@@ -41,6 +41,7 @@ class MambaBlock(nn.Module):
             chunk_size=chunk_size,
         )
         self.mamba = Mamba2(config)
+        self.norm = nn.LayerNorm(d_model)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -48,6 +49,9 @@ class MambaBlock(nn.Module):
         Returns:
         output: (batch_size, seq_len, d_model)
         """
+        residual = x
+        x = self.norm(x)
+        
         seq_len = x.size(1)
         chunk_size = self.mamba.args.chunk_size
 
@@ -60,4 +64,4 @@ class MambaBlock(nn.Module):
         if pad_len > 0:
             y = y[:, :seq_len, :]
 
-        return y
+        return y + residual

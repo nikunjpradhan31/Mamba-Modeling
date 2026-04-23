@@ -36,13 +36,18 @@ def compute_metrics(y_true, y_pred):
         task_y_true = y_true[:, i]
         task_y_pred = y_pred[:, i]
 
-        # Filter out NaNs
+        # Filter out NaNs from ground truth
         valid_indices = ~np.isnan(task_y_true)
         valid_y_true = task_y_true[valid_indices]
         valid_y_pred = task_y_pred[valid_indices]
 
+        # Also filter out NaNs from predictions if any (e.g., due to model instability)
+        non_nan_pred = ~np.isnan(valid_y_pred)
+        valid_y_true = valid_y_true[non_nan_pred]
+        valid_y_pred = valid_y_pred[non_nan_pred]
+
         # Need at least one positive and one negative sample to compute metrics
-        if len(np.unique(valid_y_true)) > 1:
+        if len(np.unique(valid_y_true)) > 1 and len(valid_y_pred) > 0:
             roc_auc = roc_auc_score(valid_y_true, valid_y_pred)
             prc_auc = average_precision_score(valid_y_true, valid_y_pred)
 

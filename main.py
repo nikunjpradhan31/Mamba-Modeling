@@ -76,6 +76,7 @@ def main():
         help="Type of model to use (hybrid or standalone gin ablation)",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs (overrides config)")
     parser.add_argument(
         "--config", type=str, default="configs/default.yaml", help="Path to config file"
     )
@@ -108,9 +109,9 @@ def main():
     train_subset, val_subset, test_subset = scaffold_split(dataset)
 
     batch_size = config["data"]["batch_size"]
-    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, pin_memory=True)
+    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, pin_memory=True)
+    test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False, pin_memory=True)
 
     logger.info(
         f"Train samples: {len(train_subset)}, Val samples: {len(val_subset)}, Test samples: {len(test_subset)}"
@@ -152,15 +153,27 @@ def main():
         model.parameters(),
         lr=float(config["training"]["lr"]),
         weight_decay=float(config["training"]["weight_decay"]),
+        fused=torch.cuda.is_available()
     )
 
-    criterion = nn.BCEWithLogitsLoss(reduction="none")
+    logger.info("Computing pos_weight for BCE loss...")
+    y_all = torch.cat([data.y for data in train_subset], dim=0) # shape (N, 12)
+    valid_mask = ~torch.isnan(y_all)
+    pos_counts = ((y_all == 1) & valid_mask).sum(dim=0)
+    neg_counts = ((y_all == 0) & valid_mask).sum(dim=0)
+    pos_weight = neg_counts.float() / pos_counts.clamp(min=1).float()
+    pos_weight = pos_weight.to(device)
+    logger.info(f"pos_weight: {pos_weight.tolist()}")
+
+    criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
 
     best_val_roc_auc = -1.0
     best_model_path = (
         f"outputs/checkpoints/best_model_{args.model_type}_{args.ordering}.pt"
     )
-    epochs = config["training"]["epochs"]
+    
+    # Use command line epochs if provided, otherwise use config
+    epochs = args.epochs if args.epochs is not None else config["training"]["epochs"]
 
     logger.info("Starting training...")
     for epoch in range(1, epochs + 1):
