@@ -77,7 +77,7 @@ class GINMambaHybrid(nn.Module):
         pooled_local = global_mean_pool(h, batch)
 
         # 2. Reordering
-        perm_output = ordering_func(data)
+        perm_output = ordering_func(data, descending=True)
         if isinstance(perm_output, tuple):
             perm, scores = perm_output
             # Soft gating to allow gradient flow to learned ordering module

@@ -73,13 +73,10 @@ def scaffold_split(dataset, frac_train=0.8, frac_valid=0.1, frac_test=0.1):
     valid_cutoff = (frac_train + frac_valid) * len(dataset)
 
     for scaffold_set in scaffold_sets:
-        # If adding this scaffold keeps train under its cutoff (or if train is empty)
-        if len(train_idx) + len(scaffold_set) <= train_cutoff:
+        if len(train_idx) < train_cutoff:
             train_idx.extend(scaffold_set)
-        # If train is full, put into valid
-        elif len(train_idx) + len(valid_idx) + len(scaffold_set) <= valid_cutoff:
+        elif len(valid_idx) < (valid_cutoff - train_cutoff):
             valid_idx.extend(scaffold_set)
-        # Otherwise, put into test
         else:
             test_idx.extend(scaffold_set)
 
