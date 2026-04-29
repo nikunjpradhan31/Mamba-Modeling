@@ -55,7 +55,7 @@ class GINMambaHybrid(nn.Module):
 
         # MLP head for task predictions (d_model + 1024 for Morgan Fingerprints)
         self.mlp = MLPHead(
-            in_channels=d_model + 1024,
+            in_channels=d_model,
             hidden_channels=mlp_hidden,
             out_channels=num_tasks,
             num_layers=mlp_layers,
@@ -106,17 +106,17 @@ class GINMambaHybrid(nn.Module):
         fused = self.kdm(pooled_local, pooled_global)
 
         # 7. Knowledge Graph / Global Topological Injection (Morgan Fingerprints)
-        if hasattr(data, 'fp') and data.fp is not None:
-            fp = data.fp
-            # PyG batching stacked them as (batch_size, 1, 1024). We need (batch_size, 1024)
-            if fp.dim() == 3 and fp.size(1) == 1:
-                fp = fp.squeeze(1)
-            elif fp.dim() == 1:
-                fp = fp.unsqueeze(0)
-            fused = torch.cat([fused, fp], dim=-1)
-        else:
-            fp_dummy = torch.zeros(fused.size(0), 1024, device=fused.device)
-            fused = torch.cat([fused, fp_dummy], dim=-1)
+        # if hasattr(data, 'fp') and data.fp is not None:
+        #     fp = data.fp
+        #     # PyG batching stacked them as (batch_size, 1, 1024). We need (batch_size, 1024)
+        #     if fp.dim() == 3 and fp.size(1) == 1:
+        #         fp = fp.squeeze(1)
+        #     elif fp.dim() == 1:
+        #         fp = fp.unsqueeze(0)
+        #     fused = torch.cat([fused, fp], dim=-1)
+        # else:
+        #     fp_dummy = torch.zeros(fused.size(0), 1024, device=fused.device)
+        #     fused = torch.cat([fused, fp_dummy], dim=-1)
 
         # 8. Classification
         logits = self.mlp(fused)
