@@ -6,11 +6,11 @@ model:
   d_model: 64
   gin_hidden: 64
   gin_layers: 3
-  mamba_state: 8
+  mamba_state: 16
   mamba_conv: 4
   mamba_expand: 2
   mamba_layers: 1
-  bidirectional: true
+  bidirectional: false
   rwse_walk_length: 16
   dropout: 0.4
 

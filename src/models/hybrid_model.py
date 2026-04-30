@@ -38,6 +38,9 @@ class GINMambaHybrid(nn.Module):
             dropout=dropout,
         )
 
+        # Projection layer to map raw node features to d_model dimension for Mamba
+        self.raw_feature_proj = nn.Linear(node_features, d_model)
+
         if bidirectional and mamba_layers > 0:
             self.mamba_layers = create_bidirectional_mamba_layers(
                 d_model=d_model,
@@ -78,25 +81,26 @@ class GINMambaHybrid(nn.Module):
         if len(self.mamba_layers) == 0:
             return h
 
+
         perm_output = ordering_func(data, descending=False)
         if isinstance(perm_output, tuple):
             perm, scores = perm_output
-            h = h * scores.unsqueeze(-1)
+            raw_features = self.raw_feature_proj(x) * scores.unsqueeze(-1)
         else:
             perm = perm_output
+            raw_features = self.raw_feature_proj(x)
 
         inv_perm = torch.argsort(perm)
 
-        h_ordered = h[perm]
+        raw_features_ordered = raw_features[perm]
         batch_perm = batch[perm]
-        dense_x, mask = to_dense_batch(h_ordered, batch_perm)
+        dense_x, mask = to_dense_batch(raw_features_ordered, batch_perm)
 
         for mamba_layer in self.mamba_layers:
             dense_x = mamba_layer(dense_x)
 
         mask_expanded = mask.unsqueeze(-1).expand_as(dense_x)
         h_mamba_ordered = dense_x[mask_expanded].view(-1, dense_x.size(-1))
-
         h_mamba = h_mamba_ordered[inv_perm]
 
         h_fused = self.kdm(h, h_mamba)

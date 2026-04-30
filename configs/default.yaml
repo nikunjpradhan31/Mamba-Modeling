@@ -6,15 +6,15 @@ model:
   gin_layers: 3
   mamba_layers: 1
   mamba_conv: 4
-  mamba_state: 8
-  bidirectional: true
+  mamba_state: 16
+  bidirectional: false
   dropout: 0.4
   rwse_walk_length: 16
   kan_gate: true
   pretrained_path: null
 training:
   epochs: 50
-  lr: 0.001
+  lr: 0.003
   weight_decay: 0.01
 
 

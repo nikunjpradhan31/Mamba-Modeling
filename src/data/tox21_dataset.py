@@ -12,12 +12,12 @@ class Tox21Dataset(InMemoryDataset):
     """
 
     def __init__(
-        self, root="tox21.csv", transform=None, pre_transform=None, pre_filter=None
+        self, root="tox21.csv", transform=None, pre_transform=None, pre_filter=None, rwse_walk_length =16
     ):
         self.csv_path = root 
 
         if pre_transform is None:
-            pre_transform = MolFeaturizer()
+            pre_transform = MolFeaturizer(rwse_walk_length=rwse_walk_length)
 
         super().__init__(
             root,

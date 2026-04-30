@@ -8,7 +8,8 @@ __pycache__/
 *.pt
 # C extensions
 *.so
-
+*.pickle
+*.index
 githubs.txt
 Toxicology_SSM_Mamba_Tox21_Ordering.pdf
 # Distribution / packaging

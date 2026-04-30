@@ -163,7 +163,10 @@ def main():
     featurizer = MolFeaturizer(rwse_walk_length=rwse_walk_length)
 
     logger.info("Loading ZINC dataset...")
-    zinc = ZINC(root=args.zinc_root, subset=args.subset, split="train")
+    import pandas as pd
+    zinc_csv = pd.read_csv(os.path.join(args.zinc_root, 'raw', 'zinc250k.csv'))
+    zinc = zinc_csv['smiles'].tolist()
+    logger.info(f"Loaded {len(zinc)} molecules from zinc250k.csv")
     logger.info(f"ZINC dataset loaded: {len(zinc)} molecules")
 
     dataset = SmilesFeaturizer(zinc, featurizer)

@@ -136,7 +136,7 @@ def main():
     rwse_walk_length = config.get("model", {}).get("rwse_walk_length", 16)
 
     logger.info("Loading dataset...")
-    dataset = Tox21Dataset(root=config["data"]["root"])
+    dataset = Tox21Dataset(root=config["data"]["root"], rwse_walk_length=rwse_walk_length)
 
     train_subset, val_subset, test_subset = scaffold_split(dataset)
 
