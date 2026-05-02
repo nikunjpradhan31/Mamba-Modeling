@@ -4,19 +4,20 @@ data:
 
 model:
   d_model: 64
-  gin_hidden: 64
-  gin_layers: 3
-  mamba_state: 16
+  gin_hidden: 128
+  gin_layers: 4
+  mamba_state: 32
   mamba_conv: 4
   mamba_expand: 2
-  mamba_layers: 1
-  bidirectional: false
+  mamba_layers: 2
+  bidirectional: true
   rwse_walk_length: 16
-  dropout: 0.4
+  dropout: 0.2
 
 training:
-  epochs: 100
-  lr: 0.001
-  weight_decay: 0.01
-  esf_weight: 0.1
+  epochs: 200
+  lr: 0.0005
+  weight_decay: 0.001
+  esf_weight: 0.2
   mask_ratio: 0.15
+  patience: 15

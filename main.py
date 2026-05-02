@@ -64,27 +64,42 @@ def load_pretrained_weights(model, pretrained_path, logger):
     logger.info(f"Loading pretrained weights from {pretrained_path}")
     state_dict = torch.load(pretrained_path, map_location="cpu", weights_only=True)
 
+    model_state = model.state_dict()
+
     pretrained_prefix = "hybrid."
     matched_state = {}
     skipped = []
+
     for key, value in state_dict.items():
+
         if key.startswith(pretrained_prefix):
             new_key = key[len(pretrained_prefix):]
-            matched_state[new_key] = value
-        elif key in ("recon_head", "esf_head", "mask_token") or key.startswith("recon_head.") or key.startswith("esf_head.") or key.startswith("mask_token"):
+        else:
+            new_key = key
+
+        # skip pretraining-only modules
+        if (
+            new_key in ("recon_head", "esf_head", "mask_token")
+            or new_key.startswith("recon_head.")
+            or new_key.startswith("esf_head.")
+            or new_key.startswith("mask_token")
+        ):
             skipped.append(key)
-        elif key in model.state_dict():
-            matched_state[key] = value
+            continue
+
+        # only load if key exists AND shapes match
+        if new_key in model_state and model_state[new_key].shape == value.shape:
+            matched_state[new_key] = value
         else:
             skipped.append(key)
 
     missing, unexpected = model.load_state_dict(matched_state, strict=False)
-    if missing:
-        logger.info(f"Missing keys (will be randomly initialized): {missing}")
-    if unexpected:
-        logger.info(f"Unexpected keys (ignored): {unexpected}")
 
-    logger.info(f"Loaded {len(matched_state)} parameters; skipped {len(skipped)} pretraining-only keys")
+    logger.info(f"Missing keys: {missing}")
+    logger.info(f"Unexpected keys: {unexpected}")
+    logger.info(f"Loaded {len(matched_state)} parameters")
+    logger.info(f"Skipped {len(skipped)} parameters")
+
     return model
 
 
@@ -219,6 +234,14 @@ def main():
 
     epochs = args.epochs if args.epochs is not None else config["training"]["epochs"]
 
+    # Initialize results tracking
+    training_results = {
+        "epochs": [],
+        "train_loss": [],
+        "val_loss": [],
+        "val_roc_auc": []
+    }
+
     logger.info("Starting training...")
     for epoch in range(1, epochs + 1):
         train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
@@ -231,6 +254,12 @@ def main():
         logger.info(
             f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val ROC-AUC: {val_roc_auc:.4f} | Val F1-Score: {val_f1_score:.4f} | Val F1-Optimal: {val_f1_optimal:.4f}"
         )
+        
+        # Track epoch results
+        training_results["epochs"].append(epoch)
+        training_results["train_loss"].append(train_loss)
+        training_results["val_loss"].append(val_loss)
+        training_results["val_roc_auc"].append(val_roc_auc)
         
         # Early stopping and model checkpointing based on multiple metrics
         improvement = False
@@ -284,9 +313,10 @@ def main():
         "test_prc_auc": test_prc_auc,
         "test_f1_score": test_f1_score,
         "best_val_roc_auc": best_val_roc_auc,
+        "training_history": training_results
     }
-
-    results_path = f"outputs/results/results_{args.model_type}_{args.ordering}.json"
+    was_pretrained = "finetuned" if pretrained_path else "trained_from_scratch"
+    results_path = f"outputs/results/results_{args.model_type}_{args.ordering}_{was_pretrained}.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
     logger.info(f"Results saved to {results_path}")

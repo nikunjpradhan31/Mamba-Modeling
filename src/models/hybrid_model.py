@@ -104,6 +104,7 @@ class GINMambaHybrid(nn.Module):
         h_mamba = h_mamba_ordered[inv_perm]
 
         h_fused = self.kdm(h, h_mamba)
+        #h_fused = h + h_mamba
         return h_fused
 
     def forward(self, data: Any, ordering_func: Callable) -> torch.Tensor:

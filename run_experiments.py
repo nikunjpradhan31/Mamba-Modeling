@@ -3,9 +3,9 @@ import sys
 import os
 
 def run_command(command):
-    print(f"\n{'='*60}")
+    print(f"\n{'='*80}")
     print(f"Executing: {' '.join(command)}")
-    print(f"{'='*60}\n")
+    print(f"{'='*80}\n")
     
     try:
         # Use sys.executable to ensure we use the same python environment
@@ -21,12 +21,12 @@ def run_command(command):
 def main():
     # Define experiments as a list of argument lists
     experiments = [
-        ["main.py", "--model_type", "gin", "--ordering", "atomic_number", "--epochs", "40"],
-        ["main.py", "--model_type", "hybrid", "--ordering", "random", "--epochs", "40"],
-        ["main.py", "--model_type", "hybrid", "--ordering", "learned", "--epochs", "40"],
-        ["main.py", "--model_type", "hybrid", "--ordering", "degree", "--epochs", "40"],
-        ["main.py", "--model_type", "hybrid", "--ordering", "atomic_number", "--epochs", "40"],
-        ["main.py", "--model_type", "hybrid", "--ordering", "electronegativity", "--epochs", "40"],
+        ["main.py", "--model_type", "hybrid", "--ordering", "atomic_number", "--epochs", "80"],
+        ["main.py", "--model_type", "gin", "--epochs", "80"],
+        ["main.py", "--model_type", "hybrid", "--ordering", "electronegativity", "--epochs", "80"],
+        ["main.py", "--model_type", "hybrid", "--ordering", "canonical", "--epochs", "80"],
+        ["main.py", "--model_type", "hybrid", "--ordering", "learned", "--epochs", "80"],
+        ["main.py", "--model_type", "hybrid", "--ordering", "degree", "--epochs", "80"],
     ]
 
     print(f"Starting {len(experiments)} Tox21 Mamba experiments...")
@@ -35,9 +35,9 @@ def main():
         print(f"\nExperiment {i}/{len(experiments)}")
         run_command(cmd_args)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'='*80}")
     print("All experiments completed successfully!")
-    print(f"{'='*60}")
+    print(f"{'='*80}")
 
 if __name__ == "__main__":
     main()
