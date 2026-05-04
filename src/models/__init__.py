@@ -3,7 +3,7 @@ from .mamba_model import MambaBlock
 from .bidirectional_mamba import BiMambaBlock
 from .mlp_head import MLPHead
 from .hybrid_model import GINMambaHybrid
-from .kan import KANDynamicMixture
+from .fusion_layer import AdaptiveFeatureMixture
 
 __all__ = [
     "GINEncoder",
@@ -11,5 +11,5 @@ __all__ = [
     "BiMambaBlock",
     "MLPHead",
     "GINMambaHybrid",
-    "KANDynamicMixture",
+    "AdaptiveFeatureMixture",
 ]

@@ -8,7 +8,7 @@ from .gin import GINEncoder
 from .mamba_model import MambaBlock
 from .bidirectional_mamba import BiMambaBlock, create_bidirectional_mamba_layers
 from .mlp_head import MLPHead
-from .kan import KANDynamicMixture
+from .fusion_layer import AdaptiveFeatureMixture
 
 
 class GINMambaHybrid(nn.Module):
@@ -16,9 +16,9 @@ class GINMambaHybrid(nn.Module):
         self,
         node_features: int,
         d_model: int,
-        gin_hidden: int = 64,
-        gin_layers: int = 3,
-        mamba_state: int = 16,
+        gin_hidden: int = 128,
+        gin_layers: int = 4,
+        mamba_state: int = 64,
         mamba_conv: int = 4,
         mamba_expand: int = 2,
         mamba_layers: int = 1,
@@ -62,8 +62,21 @@ class GINMambaHybrid(nn.Module):
                 ]
             )
 
-        self.kdm = KANDynamicMixture(d_model)
+        self.kdm = AdaptiveFeatureMixture(d_model)
 
+        # # Task-specific heads: one small MLP per assay
+        # self.task_heads = nn.ModuleList(
+        #     [
+        #         MLPHead(
+        #             in_channels=d_model,
+        #             hidden_channels=mlp_hidden,
+        #             out_channels=1,
+        #             num_layers=mlp_layers,
+        #             dropout=dropout,
+        #         )
+        #         for _ in range(num_tasks)
+        #     ]
+        # )
         self.mlp = MLPHead(
             in_channels=d_model,
             hidden_channels=mlp_hidden,
@@ -110,5 +123,7 @@ class GINMambaHybrid(nn.Module):
     def forward(self, data: Any, ordering_func: Callable) -> torch.Tensor:
         h_fused = self.encode_atoms(data, ordering_func)
         pooled = global_mean_pool(h_fused, data.batch)
+        # Task-specific predictions
         logits = self.mlp(pooled)
+        #logits = torch.cat([head(pooled) for head in self.task_heads], dim=-1)
         return logits

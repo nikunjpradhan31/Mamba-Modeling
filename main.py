@@ -153,7 +153,7 @@ def main():
     logger.info("Loading dataset...")
     dataset = Tox21Dataset(root=config["data"]["root"], rwse_walk_length=rwse_walk_length)
 
-    train_subset, val_subset, test_subset = random_split_dataset(dataset)
+    train_subset, val_subset, test_subset = scaffold_split(dataset)
 
     batch_size = config["data"]["batch_size"]
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, pin_memory=True)
@@ -220,7 +220,6 @@ def main():
     pos_weight = neg_counts.float() / pos_counts.clamp(min=1).float()
     pos_weight = pos_weight.to(device)
     logger.info(f"pos_weight: {pos_weight.tolist()}")
-
     criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
 
     best_val_roc_auc = -1.0

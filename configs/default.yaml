@@ -7,7 +7,7 @@ model:
   gin_hidden: 128
   mamba_layers: 2
   mamba_conv: 4
-  mamba_state: 32
+  mamba_state: 64
   bidirectional: true
   dropout: 0.2
   rwse_walk_length: 16
@@ -17,17 +17,3 @@ training:
   epochs: 50
   lr: 0.001
   weight_decay: 0.01
-
-
-# data:
-#   root: "data/"
-#   batch_size: 64
-# model:
-#   d_model: 32
-#   gin_layers: 2
-#   mamba_layers: 1
-#   dropout: 0.3
-# training:
-#   epochs: 50
-#   lr: 0.001
-#   weight_decay: 1e-4
