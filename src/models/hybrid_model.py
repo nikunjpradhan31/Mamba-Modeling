@@ -8,7 +8,7 @@ from .gin import GINEncoder
 from .mamba_model import MambaBlock
 from .bidirectional_mamba import BiMambaBlock, create_bidirectional_mamba_layers
 from .mlp_head import MLPHead
-from .fusion_layer import AdaptiveFeatureMixture
+from .fusion_layer import AdaptiveFeatureMixture, BilinearAttentionFusion, SqueezeExcitationFusion, GLUHighwayFusion, LateFusionLayer
 
 
 class GINMambaHybrid(nn.Module):
@@ -61,7 +61,27 @@ class GINMambaHybrid(nn.Module):
                     for _ in range(mamba_layers)
                 ]
             )
-
+        # # Local stream (GINE)
+        # self.local_mlp = MLPHead(
+        #     in_channels=d_model,
+        #     hidden_channels=mlp_hidden,
+        #     out_channels=num_tasks,
+        #     num_layers=mlp_layers,
+        #     dropout=dropout,
+        # )
+        
+        # # Global stream (Mamba)
+        # self.global_mlp = MLPHead(
+        #     in_channels=d_model,
+        #     hidden_channels=mlp_hidden,
+        #     out_channels=num_tasks,
+        #     num_layers=mlp_layers,
+        #     dropout=dropout,
+        # )
+        
+        # Late fusion layer
+        #self.late_fusion = LateFusionLayer(num_tasks=num_tasks)
+        
         self.kdm = AdaptiveFeatureMixture(d_model)
 
         # # Task-specific heads: one small MLP per assay
@@ -85,15 +105,18 @@ class GINMambaHybrid(nn.Module):
             dropout=dropout,
         )
 
-    def encode_atoms(self, data: Any, ordering_func: Callable) -> torch.Tensor:
+    def encode_atoms_local(self, data: Any) -> torch.Tensor:
+        """Local stream: GINE features only."""
         x, edge_index, batch = data.x, data.edge_index, data.batch
         edge_attr = getattr(data, "edge_attr", None)
+        return self.gin(x, edge_index, edge_attr=edge_attr)
 
-        h = self.gin(x, edge_index, edge_attr=edge_attr)
-
+    def encode_atoms_global(self, data: Any, ordering_func: Callable) -> torch.Tensor:
+        """Global stream: Mamba features only."""
+        x, batch = data.x, data.batch
+        
         if len(self.mamba_layers) == 0:
-            return h
-
+            return self.raw_feature_proj(x)
 
         perm_output = ordering_func(data, descending=False)
         if isinstance(perm_output, tuple):
@@ -104,23 +127,66 @@ class GINMambaHybrid(nn.Module):
             raw_features = self.raw_feature_proj(x)
 
         inv_perm = torch.argsort(perm)
-
-        raw_features_ordered = raw_features[perm]
         batch_perm = batch[perm]
-        dense_x, mask = to_dense_batch(raw_features_ordered, batch_perm)
+        dense_x, mask = to_dense_batch(raw_features[perm], batch_perm)
 
         for mamba_layer in self.mamba_layers:
             dense_x = mamba_layer(dense_x)
 
         mask_expanded = mask.unsqueeze(-1).expand_as(dense_x)
         h_mamba_ordered = dense_x[mask_expanded].view(-1, dense_x.size(-1))
-        h_mamba = h_mamba_ordered[inv_perm]
+        return h_mamba_ordered[inv_perm]
 
+    # Commented out mid-stream fusion
+    def encode_atoms(self, data: Any, ordering_func: Callable) -> torch.Tensor:
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+        edge_attr = getattr(data, "edge_attr", None)
+    
+        h = self.gin(x, edge_index, edge_attr=edge_attr)
+    
+        if len(self.mamba_layers) == 0:
+            return h
+    
+        perm_output = ordering_func(data, descending=False)
+        if isinstance(perm_output, tuple):
+            perm, scores = perm_output
+            raw_features = self.raw_feature_proj(x) * scores.unsqueeze(-1)
+        else:
+            perm = perm_output
+            raw_features = self.raw_feature_proj(x)
+    
+        inv_perm = torch.argsort(perm)
+    
+        raw_features_ordered = raw_features[perm]
+        batch_perm = batch[perm]
+        dense_x, mask = to_dense_batch(raw_features_ordered, batch_perm)
+    
+        for mamba_layer in self.mamba_layers:
+            dense_x = mamba_layer(dense_x)
+    
+        mask_expanded = mask.unsqueeze(-1).expand_as(dense_x)
+        h_mamba_ordered = dense_x[mask_expanded].view(-1, dense_x.size(-1))
+        h_mamba = h_mamba_ordered[inv_perm]
+    
         h_fused = self.kdm(h, h_mamba)
         #h_fused = h + h_mamba
         return h_fused
 
     def forward(self, data: Any, ordering_func: Callable) -> torch.Tensor:
+        """Late fusion: Separate streams until final logits."""
+        # # Local stream: GINE → Pool → MLP → Logits
+        # h_local = self.encode_atoms_local(data)
+        # pooled_local = global_mean_pool(h_local, data.batch)
+        # local_logits = self.local_mlp(pooled_local)
+        
+        # # Global stream: Mamba → Pool → MLP → Logits
+        # h_global = self.encode_atoms_global(data, ordering_func)
+        # pooled_global = global_mean_pool(h_global, data.batch)
+        # global_logits = self.global_mlp(pooled_global)
+        
+        # # Ensemble: Learnable per-task weights
+        # return self.late_fusion(local_logits, global_logits)
+        
         h_fused = self.encode_atoms(data, ordering_func)
         pooled = global_mean_pool(h_fused, data.batch)
         # Task-specific predictions
