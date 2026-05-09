@@ -2,7 +2,7 @@ torch
 torch_geometric
 torch_scatter
 torch_sparse
-mamba_ssm
+einops
 rdkit
 scikit-learn
 pandas
