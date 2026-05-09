@@ -22,11 +22,16 @@ def main():
     # Define experiments as a list of argument lists
     experiments = [
         ["main.py", "--model_type", "hybrid", "--ordering", "atomic_number", "--epochs", "45"],
-        ["main.py", "--model_type", "gin", "--epochs", "45"],
+        ["main.py", "--model_type", "mamba", "--ordering", "atomic_number", "--epochs", "45"],
         ["main.py", "--model_type", "hybrid", "--ordering", "electronegativity", "--epochs", "45"],
+        ["main.py", "--model_type", "mamba", "--ordering", "electronegativity", "--epochs", "45"],
         ["main.py", "--model_type", "hybrid", "--ordering", "canonical", "--epochs", "45"],
+        ["main.py", "--model_type", "mamba", "--ordering", "canonical", "--epochs", "45"],
         ["main.py", "--model_type", "hybrid", "--ordering", "learned", "--epochs", "45"],
+        ["main.py", "--model_type", "mamba", "--ordering", "learned", "--epochs", "45"],
         ["main.py", "--model_type", "hybrid", "--ordering", "degree", "--epochs", "45"],
+        ["main.py", "--model_type", "mamba", "--ordering", "degree", "--epochs", "45"],
+        # ["main.py", "--model_type", "gin", "--epochs", "45"],
     ]
 
     print(f"Starting {len(experiments)} Tox21 Mamba experiments...")

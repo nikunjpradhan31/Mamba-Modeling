@@ -116,8 +116,8 @@ def main():
         "--model_type",
         type=str,
         default="hybrid",
-        choices=["hybrid", "gin"],
-        help="Type of model to use (hybrid or standalone gin ablation)",
+        choices=["hybrid", "gin", "mamba"],
+        help="Type of model to use (hybrid, standalone gin ablation, or mamba-only)",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs (overrides config)")
@@ -185,16 +185,20 @@ def main():
     if args.model_type == "gin":
         mamba_layers = 0
         logger.info("Using standalone GIN baseline (mamba_layers=0)")
-
     base_model = GINMambaHybrid(
         node_features=dataset.num_node_features,
-        d_model=config["model"]["d_model"],
+        edge_features=9,
+        mamba_d_model=config["model"]["mamba_d_model"],
+        mamba_expand=config["model"]["mamba_expand"],
+        gin_out_channels=config["model"].get("gin_out_channels", 64),
+        fusion_dim=config["model"].get("fusion_dim", 64),
         gin_hidden=config["model"].get("gin_hidden", 64),
         gin_layers=config["model"]["gin_layers"],
         mamba_state=config["model"]["mamba_state"],
         mamba_conv=config["model"]["mamba_conv"],
         mamba_layers=mamba_layers,
         bidirectional=config["model"].get("bidirectional", False),
+        model_type=args.model_type,
         dropout=config["model"]["dropout"],
         num_tasks=dataset.num_tasks,
     )
